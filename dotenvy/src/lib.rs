@@ -124,22 +124,12 @@ pub enum EnvSequence {
     InputThenEnv,
 }
 
+#[derive(Default)]
 pub struct EnvLoader<'a> {
     path: Option<PathBuf>,
     reader: Option<Box<dyn Read + 'a>>,
     sequence: EnvSequence,
     substitution: bool,
-}
-
-impl Default for EnvLoader<'_> {
-    fn default() -> Self {
-        Self {
-            path: None,
-            reader: None,
-            sequence: EnvSequence::default(),
-            substitution: true,
-        }
-    }
 }
 
 impl<'a> EnvLoader<'a> {
@@ -189,7 +179,7 @@ impl<'a> EnvLoader<'a> {
 
     /// Sets whether variable substitution is performed on values, e.g. `$KEY` and `${KEY}`.
     ///
-    /// Defaults to `true`. When disabled, `$` is treated as a literal character.
+    /// Defaults to `false`. When disabled, `$` is treated as a literal character.
     #[must_use]
     pub const fn substitution(mut self, substitution: bool) -> Self {
         self.substitution = substitution;
@@ -314,6 +304,7 @@ mod tests {
         );
         let env_map = EnvLoader::with_reader(Cursor::new(s))
             .sequence(EnvSequence::InputThenEnv)
+            .substitution(true)
             .load()?;
 
         assert_eq!(env_map.var("KEY")?, "value");
@@ -350,7 +341,7 @@ mod tests {
     }
 
     #[test]
-    fn test_substitution_disabled() -> Result<(), crate::Error> {
+    fn test_substitution_disabled_by_default() -> Result<(), crate::Error> {
         unsafe {
             env::set_var("SUB_KEY", "value");
         }
@@ -367,7 +358,6 @@ mod tests {
 
         let env_map = EnvLoader::with_reader(Cursor::new(s))
             .sequence(EnvSequence::InputOnly)
-            .substitution(false)
             .load()?;
 
         let special = r#""!@#$%^&*()_+-=[]{}|;:",.<>/?"#;

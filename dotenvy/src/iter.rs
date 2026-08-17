@@ -16,7 +16,7 @@ impl<B: BufRead> Iter<B> {
         Self {
             lines: Lines(buf),
             substitution_data: HashMap::new(),
-            substitution: true,
+            substitution: false,
         }
     }
 
