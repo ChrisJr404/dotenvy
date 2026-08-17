@@ -7,6 +7,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `EnvLoader::substitution` to enable or disable variable substitution ([PR #167](https://github.com/allan2/dotenvy/pull/167)) by [entangle2giraffe](https://github.com/entangle2giraffe)
+
 ### Changed
 - update to 2021 edition
 - update MSRV to 1.74.0

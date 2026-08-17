@@ -7,23 +7,30 @@ use crate::iter::ParseBufError;
 pub fn parse_line(
     line: &str,
     substitution_data: &mut HashMap<String, Option<String>>,
+    substitution: bool,
 ) -> Result<Option<(String, String)>, ParseBufError> {
-    let mut parser = LineParser::new(line, substitution_data);
+    let mut parser = LineParser::new(line, substitution_data, substitution);
     parser.parse_line()
 }
 
 struct LineParser<'a> {
     original_line: &'a str,
     substitution_data: &'a mut HashMap<String, Option<String>>,
+    substitution: bool,
     line: &'a str,
     pos: usize,
 }
 
 impl<'a> LineParser<'a> {
-    fn new(line: &'a str, substitution_data: &'a mut HashMap<String, Option<String>>) -> Self {
+    fn new(
+        line: &'a str,
+        substitution_data: &'a mut HashMap<String, Option<String>>,
+        substitution: bool,
+    ) -> Self {
         LineParser {
             original_line: line,
             substitution_data,
+            substitution,
             line: line.trim_end(), // we don’t want trailing whitespace
             pos: 0,
         }
@@ -61,7 +68,7 @@ impl<'a> LineParser<'a> {
             return Ok(Some((key, String::new())));
         }
 
-        let parsed_value = parse_value(self.line, self.substitution_data)?;
+        let parsed_value = parse_value(self.line, self.substitution_data, self.substitution)?;
         self.substitution_data
             .insert(key.clone(), Some(parsed_value.clone()));
 
@@ -118,6 +125,7 @@ enum SubstitutionMode {
 fn parse_value(
     input: &str,
     substitution_data: &HashMap<String, Option<String>>,
+    substitution: bool,
 ) -> Result<String, ParseBufError> {
     let mut strong_quote = false; // '
     let mut weak_quote = false; // "
@@ -203,7 +211,7 @@ fn parse_value(
                     }
                 }
             }
-        } else if c == '$' {
+        } else if substitution && c == '$' {
             substitution_mode = if !strong_quote && !escaped {
                 SubstitutionMode::Block
             } else {

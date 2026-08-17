@@ -8,6 +8,7 @@ use std::{
 pub struct Iter<B> {
     lines: Lines<B>,
     substitution_data: HashMap<String, Option<String>>,
+    substitution: bool,
 }
 
 impl<B: BufRead> Iter<B> {
@@ -15,7 +16,14 @@ impl<B: BufRead> Iter<B> {
         Self {
             lines: Lines(buf),
             substitution_data: HashMap::new(),
+            substitution: true,
         }
+    }
+
+    /// Sets whether variable substitution is performed on values.
+    pub const fn substitution(mut self, substitution: bool) -> Self {
+        self.substitution = substitution;
+        self
     }
 
     fn internal_load<F>(mut self, mut load_fn: F) -> Result<EnvMap, ParseBufError>
@@ -189,7 +197,7 @@ impl<B: BufRead> Iterator for Iter<B> {
                 None => return None,
             };
 
-            match parse::parse_line(&line, &mut self.substitution_data) {
+            match parse::parse_line(&line, &mut self.substitution_data, self.substitution) {
                 Ok(Some(res)) => return Some(Ok(res)),
                 Ok(None) => {}
                 Err(e) => return Some(Err(e)),

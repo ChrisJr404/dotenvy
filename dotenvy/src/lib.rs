@@ -124,11 +124,22 @@ pub enum EnvSequence {
     InputThenEnv,
 }
 
-#[derive(Default)]
 pub struct EnvLoader<'a> {
     path: Option<PathBuf>,
     reader: Option<Box<dyn Read + 'a>>,
     sequence: EnvSequence,
+    substitution: bool,
+}
+
+impl Default for EnvLoader<'_> {
+    fn default() -> Self {
+        Self {
+            path: None,
+            reader: None,
+            sequence: EnvSequence::default(),
+            substitution: true,
+        }
+    }
 }
 
 impl<'a> EnvLoader<'a> {
@@ -176,6 +187,15 @@ impl<'a> EnvLoader<'a> {
         self
     }
 
+    /// Sets whether variable substitution is performed on values, e.g. `$KEY` and `${KEY}`.
+    ///
+    /// Defaults to `true`. When disabled, `$` is treated as a literal character.
+    #[must_use]
+    pub const fn substitution(mut self, substitution: bool) -> Self {
+        self.substitution = substitution;
+        self
+    }
+
     fn buf(self) -> Result<BufReader<Box<dyn Read + 'a>>, crate::Error> {
         let rdr = if let Some(rdr) = self.reader {
             rdr
@@ -191,20 +211,23 @@ impl<'a> EnvLoader<'a> {
 
     fn load_input(self) -> Result<EnvMap, crate::Error> {
         let path = self.path.clone();
-        let iter = Iter::new(self.buf()?);
-        iter.load().map_err(|e| ((e, path).into()))
+        let substitution = self.substitution;
+        let iter = Iter::new(self.buf()?).substitution(substitution);
+        iter.load().map_err(|e| (e, path).into())
     }
 
     unsafe fn load_input_and_modify(self) -> Result<EnvMap, crate::Error> {
         let path = self.path.clone();
-        let iter = Iter::new(self.buf()?);
-        unsafe { iter.load_and_modify() }.map_err(|e| ((e, path).into()))
+        let substitution = self.substitution;
+        let iter = Iter::new(self.buf()?).substitution(substitution);
+        unsafe { iter.load_and_modify() }.map_err(|e| (e, path).into())
     }
 
     unsafe fn load_input_and_modify_override(self) -> Result<EnvMap, crate::Error> {
         let path = self.path.clone();
-        let iter = Iter::new(self.buf()?);
-        unsafe { iter.load_and_modify_override() }.map_err(|e| ((e, path).into()))
+        let substitution = self.substitution;
+        let iter = Iter::new(self.buf()?).substitution(substitution);
+        unsafe { iter.load_and_modify_override() }.map_err(|e| (e, path).into())
     }
 
     /// Loads environment variables into a hash map.
@@ -283,7 +306,7 @@ mod tests {
             r#"
     KEY1=new_value1
     KEY_U=$KEY+valueU
-    
+
     STRONG_QUOTES='{common_string}'
     WEAK_QUOTES="{common_string}"
     NO_QUOTES={common_string}
@@ -323,6 +346,38 @@ mod tests {
             ]
             .join(">>")
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_substitution_disabled() -> Result<(), crate::Error> {
+        unsafe {
+            env::set_var("SUB_KEY", "value");
+        }
+
+        let s = r#"
+    PASSWORD=pa$$word
+    HASH='$2b$10$abcdefghijklmnopqrstuv'
+    WEAK="$SUB_KEY and ${SUB_KEY}"
+    NO_QUOTES=$SUB_KEY
+    ESCAPED="\$SUB_KEY"
+    SPECIAL_STRONG='"!@#$%^&*()_+-=[]{}|;:",.<>/?'
+    SPECIAL_WEAK="\"!@#$%^&*()_+-=[]{}|;:\",.<>/?"
+    "#;
+
+        let env_map = EnvLoader::with_reader(Cursor::new(s))
+            .sequence(EnvSequence::InputOnly)
+            .substitution(false)
+            .load()?;
+
+        let special = r#""!@#$%^&*()_+-=[]{}|;:",.<>/?"#;
+        assert_eq!(env_map.var("PASSWORD")?, "pa$$word");
+        assert_eq!(env_map.var("HASH")?, "$2b$10$abcdefghijklmnopqrstuv");
+        assert_eq!(env_map.var("WEAK")?, "$SUB_KEY and ${SUB_KEY}");
+        assert_eq!(env_map.var("NO_QUOTES")?, "$SUB_KEY");
+        assert_eq!(env_map.var("ESCAPED")?, "$SUB_KEY");
+        assert_eq!(env_map.var("SPECIAL_STRONG")?, special);
+        assert_eq!(env_map.var("SPECIAL_WEAK")?, special);
         Ok(())
     }
 
