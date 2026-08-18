@@ -414,7 +414,7 @@ mod substitution_tests {
 
     /// Asserts the parsed string is equal to the expected string.
     fn assert_str(actual: &str, expected: Vec<(&str, &str)>) -> Result<(), ParseBufError> {
-        let actual_iter = Iter::new(actual.as_bytes());
+        let actual_iter = Iter::new(actual.as_bytes()).substitution(true);
         let expected_count = expected.len();
 
         let expected_iter = expected
@@ -581,6 +581,7 @@ mod error_tests {
             )
             .as_bytes(),
         )
+        .substitution(true)
         .collect::<Vec<_>>();
 
         // first line works

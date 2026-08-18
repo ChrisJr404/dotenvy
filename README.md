@@ -35,8 +35,9 @@ PORT=3000
 
 Common names for env files are _.env_, _.env.dev_, _.env.prod_, but any name can be used. The default path for this crate is _.env_.
 
-Variables can span multiple lines and can also be substituted. For an explanation of substituion rules, refer to
-the [_.env-substitution_](.env-substitution) example file.
+Variables can span multiple lines. Variable substitution is disabled by default and can be enabled with
+`EnvLoader::substitution(true)`. For an explanation of substitution rules, refer to the
+[_.env-substitution_](.env-substitution) example file.
 
 ## Usage
 
@@ -64,6 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 // from a file
 let loader1 = EnvLoader::with_path("./.env").sequence(EnvSequence::InputThenEnv);
 let loader2 = EnvLoader::new();  // shorthand for loader1
+
+// opt in to variable substitution
+let substituting_loader = EnvLoader::new().substitution(true);
 
 // from a string
 let s = "HOST=foo\nPORT=3000";
